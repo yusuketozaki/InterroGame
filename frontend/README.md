@@ -1,53 +1,76 @@
-# React + TypeScript + Vite
+# InterroGame Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## 概要
+「犯人を導けワトソン！」の推理ゲームフロントエンド部分です。
+React + TypeScript + Viteで構築されています。
 
-Currently, two official plugins are available:
+## 機能
+- 🏠 **ホームページ**: ゲーム説明とナビゲーション
+- 🎮 **ゲーム画面**: 容疑者への質問と推理機能
+- 🎯 **結果画面**: 推理結果の表示と解説
+- 👤 **プロフィール**: 個人成績と履歴表示
+- ⚙️ **管理者画面**: 事件テンプレートの作成・管理
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## セットアップ
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+### 依存関係のインストール
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 開発サーバーの起動
+```bash
+npm run dev
+```
+アプリケーションは http://localhost:5173 で起動します。
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### ビルド
+```bash
+npm run build
+```
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
+### プレビュー
+```bash
+npm run preview
+```
+
+## プロジェクト構成
+
+```
+src/
+├── pages/           # ページコンポーネント
+│   ├── HomePage.tsx     # ホーム画面
+│   ├── GamePage.tsx     # ゲーム画面
+│   ├── ResultPage.tsx   # 結果画面
+│   ├── ProfilePage.tsx  # プロフィール画面
+│   └── AdminPage.tsx    # 管理者画面
+├── assets/          # 静的ファイル
+├── App.tsx          # メインアプリコンポーネント
+├── App.css          # スタイルシート
+└── main.tsx         # エントリーポイント
+```
+
+## 使用技術
+- **React 18**: UIライブラリ
+- **TypeScript**: 型安全な開発
+- **Vite**: 高速ビルドツール
+- **React Router**: ルーティング
+- **ESLint**: コード品質チェック
+
+## API連携
+バックエンド（Python + FastAPI）との連携は今後実装予定です。
+現在はモックデータを使用しています。
+
+## 開発時の注意事項
+- TypeScriptの型チェックを有効にしています
+- ESLintルールに従ってコードを記述してください
+- レスポンシブデザインに対応しています
+
+## 今後の実装予定
+- [ ] バックエンドAPI連携
+- [ ] リアルタイム機能（WebSocket）
+- [ ] PWA対応
+- [ ] テスト実装
     ...reactDom.configs.recommended.rules,
   },
 })
