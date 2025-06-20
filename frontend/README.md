@@ -1,35 +1,3 @@
-# InterroGame
-
-対話型尋問推理ゲームのWebアプリです。
-
-## 構成
-- `src/` : フロントエンド（React + Vite + TypeScript）
-- `backend/` : バックエンド（Python + FastAPI）
-
-## セットアップ
-
-### フロントエンド
-```sh
-cd /Users/yusuke_tozaki/a_main/a_repositories/InterroGame
-npm install
-npm run dev
-```
-
-### バックエンド
-```sh
-cd backend
-pip install fastapi uvicorn
-uvicorn main:app --reload
-```
-
-## 開発メモ
-- 共同開発時はフロント・バックエンドでディレクトリを分けて作業してください。
-- 質問や仕様はこのREADMEに追記してください。
-
----
-
-# 既存テンプレート情報
-
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
