@@ -274,8 +274,8 @@ const ProfilePage = () => {
               }
 
               // 平均値を計算
-              const calculateAverage = (field: keyof typeof surveysData[0]['surveyData']) => {
-                const sum = surveysData.reduce((acc, game) => acc + (game.surveyData![field] as number), 0)
+              const calculateAverage = (field: 'overallSatisfaction' | 'difficultyAppropriate' | 'aiCharacterRealism' | 'mysteryInteresting') => {
+                const sum = surveysData.reduce((acc, game) => acc + game.surveyData![field], 0)
                 return (sum / surveysData.length).toFixed(1)
               }
 
