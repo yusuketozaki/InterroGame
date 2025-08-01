@@ -22,9 +22,11 @@ docker rm $BACKEND_CONTAINER $FRONTEND_CONTAINER 2>/dev/null || true
 echo "🌐 Dockerネットワークを作成中..."
 docker network create $NETWORK_NAME 2>/dev/null || echo "ネットワーク $NETWORK_NAME は既に存在します"
 
-# 3. ボリュームの作成（存在しない場合）
-echo "💾 Dockerボリュームを作成中..."
-docker volume create $VOLUME_NAME 2>/dev/null || echo "ボリューム $VOLUME_NAME は既に存在します"
+# 3. ローカルディレクトリでOllamaデータを管理
+echo "💾 ローカルOllamaディレクトリを作成中..."
+OLLAMA_DATA_DIR="$(pwd)/ollama-data"
+mkdir -p "$OLLAMA_DATA_DIR"
+echo "📍 Ollamaデータ保存先: $OLLAMA_DATA_DIR"
 
 # 4. バックエンドDockerイメージをビルド
 echo "🔨 バックエンドDockerイメージをビルド中..."
@@ -40,7 +42,7 @@ docker run -d \
   --name $BACKEND_CONTAINER \
   --network $NETWORK_NAME \
   -p 8000:8000 \
-  -v $VOLUME_NAME:/root/.ollama \
+  -v "$OLLAMA_DATA_DIR:/root/.ollama" \
   -e OLLAMA_HOST=0.0.0.0:11434 \
   --restart unless-stopped \
   --gpus all \
@@ -68,16 +70,36 @@ for i in {1..15}; do
     break
   else
     echo "Backend startup waiting... ${i}/15 - Model downloading may be in progress"
+
+    # 3回に1回、ディスク容量を監視
+    if [ $((i % 3)) -eq 0 ]; then
+        echo "💾 現在のディスク使用量:"
+        df -h / | head -2
+        echo "📦 Ollamaディレクトリサイズ:"
+        du -sh "$OLLAMA_DATA_DIR" 2>/dev/null || echo "まだ作成されていません"
+        echo ""
+    fi
+
     sleep 20
   fi
 
   if [ $i -eq 15 ]; then
     echo "❌ バックエンドの起動に失敗しました"
-    echo "📋 バックエンドログ:"
+    echo "� 最終ディスク使用量チェック:"
+    df -h /
+    echo "📦 Ollamaディレクトリの状況:"
+    ls -la "$OLLAMA_DATA_DIR" 2>/dev/null || echo "ディレクトリが存在しません"
+    echo ""
+    echo "�📋 バックエンドログ:"
     docker logs --tail 50 $BACKEND_CONTAINER
     echo ""
     echo "🔍 Ollamaの状況を確認中..."
     docker exec $BACKEND_CONTAINER ollama list || echo "Ollamaコマンドの実行に失敗"
+    echo ""
+    echo "🔧 トラブルシューティング:"
+    echo "  - Ollamaデータ場所: $OLLAMA_DATA_DIR"
+    echo "  - ディスク容量確認: df -h"
+    echo "  - ディレクトリサイズ確認: du -sh $OLLAMA_DATA_DIR"
     exit 1
   fi
 done
