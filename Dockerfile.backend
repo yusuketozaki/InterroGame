@@ -6,6 +6,7 @@ WORKDIR /app
 # システムの依存関係をインストール
 RUN apt-get update && apt-get install -y \
     curl \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Ollamaをインストール
@@ -25,9 +26,9 @@ COPY backend/app ./app
 
 # Ollamaを起動してモデルをダウンロード（バックグラウンド）
 RUN ollama serve & \
-    sleep 10 && \
-    ollama pull qwen2.5:7b && \
-    pkill ollama
+    sleep 15 && \
+    ollama pull qwen3:8b && \
+    pkill -f ollama
 
 EXPOSE 8000
 
