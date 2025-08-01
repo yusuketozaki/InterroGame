@@ -1,0 +1,41 @@
+{
+  "gameplay": {
+    "maxQuestions": 10,
+    "typewriterSpeed": {
+      "normal": 60,
+      "punctuation": 200,
+      "space": 30,
+      "bracket": 80
+    },
+    "streamingSpeed": {
+      "normal": 50,
+      "punctuation": 200,
+      "space": 30
+    },
+    "delays": {
+      "fieldComplete": 800,
+      "gameStart": 1000,
+      "skipAllowTime": 3000,
+      "briefingComplete": 1200,
+      "phaseTransition": 3000,
+      "streamingComplete": 1000
+    }
+  },
+  "ui": {
+    "testimonyTabs": {
+      "showAll": true,
+      "showCounts": true
+    },
+    "suspects": {
+      "gridLayout": true,
+      "showDescriptions": true
+    }
+  },
+  "api": {
+    "endpoints": {
+      "chat": "/v1/api/chat"
+    },
+    "retryAttempts": 3,
+    "timeout": 30000
+  }
+}

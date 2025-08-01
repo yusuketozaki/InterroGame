@@ -1,0 +1,38 @@
+# Backend Dockerfile
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# システムの依存関係をインストール
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Ollamaをインストール
+RUN curl -fsSL https://ollama.ai/install.sh | sh
+
+# Pythonの依存関係をコピーしてインストール
+COPY backend/pyproject.toml backend/uv.lock ./
+
+# uvをインストール
+RUN pip install uv
+
+# 依存関係をインストール
+RUN uv sync --frozen
+
+# アプリケーションコードをコピー
+COPY backend/app ./app
+
+# Ollamaを起動してモデルをダウンロード（バックグラウンド）
+RUN ollama serve & \
+    sleep 10 && \
+    ollama pull qwen2.5:7b && \
+    pkill ollama
+
+EXPOSE 8000
+
+# Ollamaサーバーとアプリを起動するスクリプト
+COPY start-backend.sh /start-backend.sh
+RUN chmod +x /start-backend.sh
+
+CMD ["/start-backend.sh"]

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import person1Image from '../assets/person1.png'
-import person2Image from '../assets/person2.png'
-import person3Image from '../assets/person3.png'
+import { gameStorage } from '../utils/gameStorage'
+import type { GameStats } from '../utils/gameStorage'
+import ConfigLoader, { type Suspect } from '../utils/configLoader'
 
 interface GameResult {
   selectedSuspect: number
@@ -15,31 +15,50 @@ const ResultPage = () => {
   const [searchParams] = useSearchParams()
   const [result, setResult] = useState<GameResult | null>(null)
   const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState<GameStats | null>(null)
+  const [gameId, setGameId] = useState<string | null>(null)
 
-  const suspects = [
-    { id: 1, name: '田中太郎', avatar: person1Image },
-    { id: 2, name: '佐藤花子', avatar: person2Image },
-    { id: 3, name: '山田次郎', avatar: person3Image }
-  ]
+  const [suspects, setSuspects] = useState<Suspect[]>([])
 
   useEffect(() => {
-    const selectedId = parseInt(searchParams.get('selected') || '1')
+    const loadResultData = async () => {
+      try {
+        const selectedId = parseInt(searchParams.get('selected') || '1')
+        const currentGameId = searchParams.get('gameId')
+        setGameId(currentGameId)
 
-    // 実際にはAPIで判定結果を取得
-    // 今はモックデータを使用
-    const mockResult: GameResult = {
-      selectedSuspect: selectedId,
-      correctSuspect: 2, // 佐藤花子が犯人という設定
-      isCorrect: selectedId === 2,
-      explanation: selectedId === 2
-        ? '正解！佐藤花子の証言には矛盾がありました。彼女は「8時頃に到着した」と言いましたが、防犯カメラには7時30分に入館する姿が記録されており、また警備員の証言と時刻が合いません。'
-        : `不正解。正解は佐藤花子でした。彼女の証言「8時頃に到着した」は防犯カメラの記録（7時30分入館）と矛盾していました。${selectedId === 1 ? '田中太郎' : '山田次郎'}は無実でした。`
+        // 設定データを読み込み
+        const { scenario, suspects: loadedSuspects } = await ConfigLoader.loadCurrentScenario()
+        setSuspects(loadedSuspects)
+
+        // 統計情報を読み込み
+        const currentStats = gameStorage.calculateStats()
+        setStats(currentStats)
+
+        // 結果を生成
+        const isCorrect = selectedId === scenario.criminalId
+        const explanation = isCorrect
+          ? scenario.results.correctExplanation
+          : scenario.results.incorrectExplanations[selectedId.toString()] || '不正解でした。'
+
+        const mockResult: GameResult = {
+          selectedSuspect: selectedId,
+          correctSuspect: scenario.criminalId,
+          isCorrect,
+          explanation
+        }
+
+        setTimeout(() => {
+          setResult(mockResult)
+          setLoading(false)
+        }, 1000)
+      } catch (error) {
+        console.error('Failed to load result data:', error)
+        setLoading(false)
+      }
     }
 
-    setTimeout(() => {
-      setResult(mockResult)
-      setLoading(false)
-    }, 1000)
+    loadResultData()
   }, [searchParams])
 
   if (loading) {
@@ -114,6 +133,11 @@ const ResultPage = () => {
           <Link to="/profile" className="profile-button">
             📊 成績を確認
           </Link>
+          {gameId && (
+            <Link to={`/survey?gameId=${gameId}`} className="survey-button">
+              📝 アンケートに回答
+            </Link>
+          )}
         </div>
 
         <div className="game-stats">
@@ -121,15 +145,27 @@ const ResultPage = () => {
           <div className="stats-grid">
             <div className="stat-item">
               <span className="stat-label">正解率</span>
-              <span className="stat-value">75%</span>
+              <span className="stat-value">{stats?.winRate || 0}%</span>
             </div>
             <div className="stat-item">
               <span className="stat-label">プレイ回数</span>
-              <span className="stat-value">12回</span>
+              <span className="stat-value">{stats?.totalGames || 0}回</span>
             </div>
             <div className="stat-item">
               <span className="stat-label">最高連続正解</span>
-              <span className="stat-value">3回</span>
+              <span className="stat-value">{stats?.maxStreak || 0}回</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">現在の連続正解</span>
+              <span className="stat-value">{stats?.currentStreak || 0}回</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">平均プレイ時間</span>
+              <span className="stat-value">{stats ? Math.floor(stats.averagePlayTime / 60) : 0}分{stats ? stats.averagePlayTime % 60 : 0}秒</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">平均質問数</span>
+              <span className="stat-value">{stats?.questionsStats.averageQuestionsUsed || 0}問</span>
             </div>
           </div>
         </div>

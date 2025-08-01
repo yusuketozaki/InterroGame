@@ -1,15 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import person1Image from '../assets/person1.png'
-import person2Image from '../assets/person2.png'
-import person3Image from '../assets/person3.png'
-
-interface Suspect {
-  id: number
-  name: string
-  description: string
-  avatar: string
-}
+import { Link, useSearchParams } from 'react-router-dom'
+import { ApiClient } from '../utils/apiClient'
+import { gameStorage } from '../utils/gameStorage'
+import type { GameData } from '../utils/gameStorage'
+import ConfigLoader, { type Suspect, type Scenario, type GameSettings } from '../utils/configLoader'
 
 interface Testimony {
   suspectId: number
@@ -19,12 +13,17 @@ interface Testimony {
 }
 
 const GamePage = () => {
+  const [searchParams] = useSearchParams()
   const [currentQuestion, setCurrentQuestion] = useState('')
   const [selectedSuspect, setSelectedSuspect] = useState<number | null>(null)
   const [testimonies, setTestimonies] = useState<Testimony[]>([])
   const [questionsRemaining, setQuestionsRemaining] = useState(5)
   const [gamePhase, setGamePhase] = useState<'scene-briefing' | 'questioning' | 'selection'>('scene-briefing')
   const [activeTestimonyTab, setActiveTestimonyTab] = useState<number | 'all'>('all')
+  const [suspects, setSuspects] = useState<Suspect[]>([])
+  const [currentScenario, setCurrentScenario] = useState<Scenario | null>(null)
+  const [gameSettings, setGameSettings] = useState<GameSettings | null>(null)
+  const [loading, setLoading] = useState(true)
 
   // タイプライター効果用のstate
   const [displayedScene, setDisplayedScene] = useState({
@@ -43,37 +42,36 @@ const GamePage = () => {
   const [streamingAnswer, setStreamingAnswer] = useState('')
   const [streamingSuspectId, setStreamingSuspectId] = useState<number | null>(null)
 
-  const suspects: Suspect[] = [
-    {
-      id: 1,
-      name: '田中太郎',
-      description: '被害者の同僚',
-      avatar: person1Image
-    },
-    {
-      id: 2,
-      name: '佐藤花子',
-      description: '被害者の友人',
-      avatar: person2Image
-    },
-    {
-      id: 3,
-      name: '山田次郎',
-      description: '警備員',
-      avatar: person3Image
-    }
-  ]
+  // ゲーム統計用のstate
+  const [gameId] = useState(() => gameStorage.generateGameId())
+  const [gameStartTime] = useState(() => Date.now())
 
-  const crimeScene = {
-    location: 'オフィスビルの20階',
-    time: '午後8時頃',
-    victim: '鈴木一郎（会社員、45歳）',
-    evidence: '窓際で発見、机の上に散乱した書類、ドアは施錠されていた',
-    details: 'エレベーターの防犯カメラには午後7時30分に3人の容疑者全員がビルに入る姿が記録されている。'
-  }
+  // 設定データの読み込み
+  useEffect(() => {
+    const loadGameData = async () => {
+      try {
+        const scenarioId = searchParams.get('scenario') || undefined
+        const { scenario, suspects: loadedSuspects } = await ConfigLoader.loadCurrentScenario(scenarioId)
+        const settings = await ConfigLoader.loadGameSettings()
+
+        setCurrentScenario(scenario)
+        setSuspects(loadedSuspects)
+        setGameSettings(settings)
+        setQuestionsRemaining(settings.gameplay.maxQuestions)
+        setLoading(false)
+      } catch (error) {
+        console.error('Failed to load game data:', error)
+        setLoading(false)
+      }
+    }
+
+    loadGameData()
+  }, [searchParams])
 
   // タイプライター効果の実装
   useEffect(() => {
+    if (!currentScenario || !gameSettings) return
+
     const typewriterEffect = async () => {
       const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -84,55 +82,52 @@ const GamePage = () => {
             ...prev,
             [field]: text.slice(0, i)
           }))
-          // 文字の種類によって速度を変える（フルスクリーン表示用に調整）
+          // 文字の種類によって速度を変える（設定から取得）
           const char = text[i]
+          const speeds = gameSettings.gameplay.typewriterSpeed
           if (char === '、' || char === '。') {
-            await delay(200) // 句読点は長めに停止（臨場感演出）
+            await delay(speeds.punctuation)
           } else if (char === ' ') {
-            await delay(30) // スペースは短く
+            await delay(speeds.space)
           } else if (char === '（' || char === '）') {
-            await delay(80) // 括弧は中程度
+            await delay(speeds.bracket)
           } else {
-            await delay(60) // 通常の文字（少し遅めで読みやすく）
+            await delay(speeds.normal)
           }
         }
-        await delay(800) // 各フィールド完了後の長めの休止
+        await delay(gameSettings.gameplay.delays.fieldComplete)
       }
 
-      // 開始前の演出的な待機
-      await delay(1000)
+      // スキップを最初から許可
+      setAllowSkip(true)
 
-      // 3秒後にスキップを許可
-      setTimeout(() => setAllowSkip(true), 3000)
+      // 開始前の演出的な待機
+      await delay(gameSettings.gameplay.delays.gameStart)
 
       // 順番にタイプライター効果を実行
-      await typeText(crimeScene.location, 'location')
-      await typeText(crimeScene.time, 'time')
-      await typeText(crimeScene.victim, 'victim')
-      await typeText(crimeScene.evidence, 'evidence')
-      await typeText(crimeScene.details, 'details')
+      await typeText(currentScenario.crimeScene.location, 'location')
+      await typeText(currentScenario.crimeScene.time, 'time')
+      await typeText(currentScenario.crimeScene.victim, 'victim')
+      await typeText(currentScenario.crimeScene.evidence, 'evidence')
+      await typeText(currentScenario.crimeScene.details, 'details')
 
       // 全完了後にカーソルを消す
       setCurrentTypingField(null)
-      await delay(1200)
+      await delay(gameSettings.gameplay.delays.briefingComplete)
       setSceneBriefingComplete(true)
 
       // さらに少し待ってからゲーム段階を進める
-      await delay(3000)
+      await delay(gameSettings.gameplay.delays.phaseTransition)
       setGamePhase('questioning')
     }
 
     typewriterEffect()
-  }, []) // 空の依存配列でマウント時のみ実行
+  }, [currentScenario, gameSettings])
 
   const handleQuestionSubmit = async () => {
     if (!currentQuestion.trim() || selectedSuspect === null) return
 
     console.log('質問送信開始:', { selectedSuspect, currentQuestion })
-
-    // 実際にはAPIコールを行う、今はモックレスポンスを使用
-    const mockResponse = getMockResponse(selectedSuspect, currentQuestion)
-    console.log('モックレスポンス:', mockResponse)
 
     // 現在の値を保存（stateが変更されても影響を受けないように）
     const currentSelectedSuspect = selectedSuspect
@@ -151,18 +146,86 @@ const GamePage = () => {
     // stateの更新を確実に反映させるため、少し待機
     await new Promise(resolve => setTimeout(resolve, 100))
 
-    // タイプライター効果でストリーミング表示
-    await streamAnswer(mockResponse)
+    try {
+      // 容疑者のシステムプロンプトを取得
+      const suspect = suspects.find(s => s.id === currentSelectedSuspect)
+      if (!suspect || !currentScenario) {
+        throw new Error('Suspect or scenario not found')
+      }
 
-    // ストリーミング完了後、証言履歴に追加
-    const newTestimony: Testimony = {
-      suspectId: currentSelectedSuspect,
-      question: currentQuestionText,
-      answer: mockResponse,
-      timestamp: new Date()
+      // 真犯人かどうかを判定
+      const isGuilty = currentSelectedSuspect === currentScenario.criminalId
+      const systemPrompt = isGuilty ? suspect.systemPrompts.guilty : suspect.systemPrompts.innocent
+
+      console.log('システムプロンプト選択結果:', {
+        suspectId: currentSelectedSuspect,
+        criminalId: currentScenario.criminalId,
+        isGuilty,
+        systemPromptLength: systemPrompt.length,
+        systemPromptPreview: systemPrompt.substring(0, 100) + '...'
+      })
+
+      // APIクライアントを使用してLLMに質問
+      const apiRequest = {
+        system_message: ApiClient.generateSuspectSystemPrompt(currentSelectedSuspect, systemPrompt),
+        messages: ApiClient.convertTestimoniesToMessages(testimonies, currentQuestionText, currentSelectedSuspect),
+        stream: false,
+        think: false
+      }
+
+      // 容疑者ごとの対話履歴を確認するためのログ
+      console.log('容疑者ごとの対話履歴管理:', {
+        targetSuspectId: currentSelectedSuspect,
+        totalTestimonies: testimonies.length,
+        suspectTestimonies: testimonies.filter(t => t.suspectId === currentSelectedSuspect).length,
+        suspectQuestionCount: ApiClient.getSuspectQuestionCount(testimonies, currentSelectedSuspect),
+        allSuspectStats: suspects.map(s => ({
+          id: s.id,
+          name: s.name,
+          questionCount: ApiClient.getSuspectQuestionCount(testimonies, s.id)
+        }))
+      })
+
+      console.log('API送信データ:', {
+        system_message_length: apiRequest.system_message.length,
+        system_message_preview: apiRequest.system_message.substring(0, 200) + '...',
+        messages_count: Object.keys(apiRequest.messages).length,
+        filtered_for_suspect: currentSelectedSuspect
+      })
+
+      const response = await ApiClient.sendChatCompletion(apiRequest)
+
+      console.log('APIレスポンス:', response)
+
+      // タイプライター効果でストリーミング表示
+      await streamAnswer(response)
+
+      // ストリーミング完了後、証言履歴に追加
+      const newTestimony: Testimony = {
+        suspectId: currentSelectedSuspect,
+        question: currentQuestionText,
+        answer: response,
+        timestamp: new Date()
+      }
+
+      setTestimonies(prev => [...prev, newTestimony])
+    } catch (error) {
+      console.error('API呼び出しエラー:', error)
+      // エラー時はフォールバック応答を表示
+      const fallbackResponse = "申し訳ございませんが、現在システムに問題が発生しています。しばらく時間をおいてから再度お試しください。"
+      await streamAnswer(fallbackResponse)
+
+      // エラー時も証言履歴に記録（デバッグ用）
+      const newTestimony: Testimony = {
+        suspectId: currentSelectedSuspect,
+        question: currentQuestionText,
+        answer: fallbackResponse,
+        timestamp: new Date()
+      }
+
+      setTestimonies(prev => [...prev, newTestimony])
     }
 
-    setTestimonies(prev => [...prev, newTestimony])
     setCurrentQuestion('')
     setQuestionsRemaining(prev => prev - 1)
 
@@ -182,6 +245,8 @@ const GamePage = () => {
     console.log('ストリーミング開始:', answer)
     console.log('ストリーミング開始時の状態:', { isAnswerStreaming, streamingSuspectId })
 
+    if (!gameSettings) return
+
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
     for (let i = 0; i <= answer.length; i++) {
@@ -192,36 +257,54 @@ const GamePage = () => {
         console.log('ストリーミング中:', { currentText, i, totalLength: answer.length })
       }
 
-      // 文字の種類によって速度を変える
+      // 文字の種類によって速度を変える（設定から取得）
       const char = answer[i]
+      const speeds = gameSettings.gameplay.streamingSpeed
       if (char === '、' || char === '。') {
-        await delay(200) // 句読点は長めに停止
+        await delay(speeds.punctuation)
       } else if (char === ' ') {
-        await delay(30) // スペースは短く
+        await delay(speeds.space)
       } else {
-        await delay(50) // 通常の文字
+        await delay(speeds.normal)
       }
     }
 
     // 完了後の小休止
     console.log('ストリーミング表示完了、最終テキスト:', answer)
-    await delay(1000)
-  }
-
-  const getMockResponse = (suspectId: number, _question: string): string => {
-    // 実際にはLLM APIを呼び出す
-    const responses = {
-      1: '午後7時45分頃にオフィスに着きました。鈴木さんとは少し話をしましたが、特に変わった様子はありませんでした。',
-      2: '私は8時頃に到着しましたが、その時にはもう鈴木さんは倒れていました。すぐに119番通報しました。',
-      3: 'ビルの見回りをしていましたが、7時50分頃に20階で大きな音がしたのを覚えています。'
-    }
-    return responses[suspectId as keyof typeof responses] || '覚えていません。'
+    await delay(gameSettings.gameplay.delays.streamingComplete)
   }
 
   const handleSuspectSelection = (suspectId: number) => {
-    // ここで結果ページに遷移
-    // 実際にはstateとして犯人選択を渡す
-    window.location.href = `/result?selected=${suspectId}`
+    if (!currentScenario || !gameSettings) return
+
+    // ゲーム終了時のデータを保存
+    const gameEndTime = Date.now()
+    const playTimeSeconds = Math.round((gameEndTime - gameStartTime) / 1000)
+    const correctSuspect = currentScenario.criminalId
+    const isCorrect = suspectId === correctSuspect
+    const questionsUsed = gameSettings.gameplay.maxQuestions - questionsRemaining
+
+    const gameData: GameData = {
+      id: gameId,
+      timestamp: gameEndTime,
+      selectedSuspect: suspectId,
+      correctSuspect,
+      isCorrect,
+      questionsUsed,
+      playTimeSeconds,
+      testimonies: testimonies.map(t => ({
+        suspectId: t.suspectId,
+        question: t.question,
+        answer: t.answer,
+        timestamp: t.timestamp
+      }))
+    }
+
+    // ゲームデータを保存
+    gameStorage.saveGameData(gameData)
+
+    // 結果ページに遷移（選択した容疑者IDを含む）
+    window.location.href = `/result?selected=${suspectId}&gameId=${gameId}`
   }
 
   const handleSkipBriefing = () => {
@@ -230,6 +313,18 @@ const GamePage = () => {
       setSceneBriefingComplete(true)
       setGamePhase('questioning')
     }
+  }
+
+  // ローディング中の表示
+  if (loading || !currentScenario || !gameSettings) {
+    return (
+      <div className="game-page loading">
+        <div className="loading-content">
+          <h1>🎮 ゲームを準備中...</h1>
+          <div className="loading-spinner"></div>
+        </div>
+      </div>
+    )
   }
 
   // 現場情報フルスクリーン表示の場合
@@ -296,12 +391,48 @@ const GamePage = () => {
     )
   }
 
+  // 背景スタイルを動的に適用
+  const backgroundStyle = currentScenario?.background ? {
+    backgroundImage: currentScenario.background.image ? `url(${currentScenario.background.image})` : undefined,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundAttachment: 'fixed'
+  } : {}
+
   return (
-    <div className="game-page">
+    <div className={`game-page atmosphere-${currentScenario?.background?.atmosphere || 'dark'}`} style={backgroundStyle}>
       <header className="game-header">
         <Link to="/" className="back-button">← トップに戻る</Link>
-        <h1>🕵️‍♂️ 犯人を導けワトソン！</h1>
-        <div className="questions-counter">残り質問数: {questionsRemaining}</div>
+        {/* <h1>🕵️‍♂️ 犯人を導けワトソン！</h1> */}
+        <div className="header-right">
+          <div className="header-stats">
+            <div className="questions-counter">残り可能質問数: {questionsRemaining}</div>
+            {gamePhase === 'questioning' && suspects.length > 0 && (
+              <div className="suspect-stats">
+                {suspects.map(suspect => {
+                  const questionCount = ApiClient.getSuspectQuestionCount(testimonies, suspect.id)
+                  return (
+                    <div key={suspect.id} className="suspect-stat">
+                      <img src={suspect.avatar} alt={suspect.name} className="stat-avatar" />
+                      <span className="stat-name">{suspect.name}</span>
+                      <span className="stat-count">{questionCount}問</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+          {/* 推理終了ボタンをヘッダに移動 */}
+          {gamePhase === 'questioning' && (
+            <button
+              onClick={() => setGamePhase('selection')}
+              className="finish-investigation-header"
+              disabled={isAnswerStreaming || testimonies.length === 0}
+            >
+              🎯 推理を終了して犯人を選ぶ
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="game-content">
@@ -332,7 +463,7 @@ const GamePage = () => {
                 すべて
               </button>
               {suspects.map(suspect => {
-                const suspectTestimonies = testimonies.filter(t => t.suspectId === suspect.id)
+                const suspectQuestionCount = ApiClient.getSuspectQuestionCount(testimonies, suspect.id)
                 return (
                   <button
                     key={suspect.id}
@@ -341,8 +472,8 @@ const GamePage = () => {
                   >
                     <img src={suspect.avatar} alt={suspect.name} className="tab-avatar" />
                     {suspect.name}
-                    {suspectTestimonies.length > 0 && (
-                      <span className="testimony-count">{suspectTestimonies.length}</span>
+                    {suspectQuestionCount > 0 && (
+                      <span className="testimony-count">{suspectQuestionCount}</span>
                     )}
                   </button>
                 )
@@ -473,23 +604,29 @@ const GamePage = () => {
             </>
           ) : (
             <section className="suspect-selection">
-              <div className="final-suspects-grid">
-                {suspects.map(suspect => (
-                  <div
-                    key={suspect.id}
-                    className="final-suspect-card"
-                    onClick={() => handleSuspectSelection(suspect.id)}
-                  >
-                    <img
-                      src={suspect.avatar}
-                      alt={suspect.name}
-                      className="suspect-image"
-                    />
-                    <h3>{suspect.name}</h3>
-                    <p>{suspect.description}</p>
-                    <button className="select-culprit">この人が犯人</button>
-                  </div>
-                ))}
+                            <div className="final-suspects-grid">
+                {suspects.map(suspect => {
+                  const questionCount = ApiClient.getSuspectQuestionCount(testimonies, suspect.id)
+                  return (
+                    <div
+                      key={suspect.id}
+                      className="final-suspect-card"
+                      onClick={() => handleSuspectSelection(suspect.id)}
+                    >
+                      <img
+                        src={suspect.avatar}
+                        alt={suspect.name}
+                        className="suspect-image"
+                      />
+                      <h3>{suspect.name}</h3>
+                      <p>{suspect.description}</p>
+                      <div className="suspect-questions-info">
+                        質問回数: {questionCount}回
+                      </div>
+                      <button className="select-culprit">この人が犯人</button>
+                    </div>
+                  )
+                })}
               </div>
             </section>
           )}
