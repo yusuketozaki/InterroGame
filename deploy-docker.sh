@@ -1,9 +1,11 @@
 #!/bin/bash
 
-# InterroGame 単体Docker デプロイメントスクリプト
+# InterroGame スタンドアロンDocker デプロイメントスクリプト
+# Docker Composeを使わずに個別のdockerコマンドでデプロイ
+
 set -e
 
-echo "🚀 InterroGame デプロイメント開始（Docker単体版）..."
+echo "🚀 InterroGame Docker デプロイメント開始..."
 
 # 設定
 NETWORK_NAME="interrogame-network"
@@ -49,7 +51,7 @@ echo "▶️ フロントエンドコンテナを起動中..."
 docker run -d \
   --name $FRONTEND_CONTAINER \
   --network $NETWORK_NAME \
-  -p 80:80 \
+  -p 8080:80 \
   --restart unless-stopped \
   interrogame-frontend:latest
 
@@ -65,7 +67,7 @@ for i in {1..15}; do
     echo "✅ バックエンドが正常に起動しました"
     break
   else
-    echo "バックエンド起動待機中... ($i/15) - モデルダウンロード中の可能性があります"
+    echo "Backend startup waiting... ${i}/15 - Model downloading may be in progress"
     sleep 20
   fi
 
@@ -82,7 +84,7 @@ done
 
 # フロントエンドのヘルスチェック
 echo "フロントエンドの起動を確認中..."
-if curl -f http://localhost:80 > /dev/null 2>&1; then
+if curl -f http://localhost:8080 > /dev/null 2>&1; then
   echo "✅ フロントエンドが正常に起動しました"
 else
   echo "❌ フロントエンドの起動に失敗しました"
@@ -91,7 +93,7 @@ else
 fi
 
 echo "🎉 デプロイメント完了！"
-echo "📍 アクセス先: http://localhost"
+echo "📍 アクセス先: http://localhost:8080"
 echo "📊 ログ確認:"
 echo "  - バックエンド: docker logs -f $BACKEND_CONTAINER"
 echo "  - フロントエンド: docker logs -f $FRONTEND_CONTAINER"

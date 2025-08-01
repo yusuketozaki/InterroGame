@@ -52,6 +52,38 @@ VS Codeのタスク機能を使用：
 - `frontend: dev` - フロントエンド開発サーバー
 - `backend: dev` - バックエンド開発サーバー
 
+## 🐳 Docker デプロイメント
+
+### Docker Compose使用（推奨）
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
+→ http://localhost:8080 でアクセス
+
+### Docker Compose非対応環境
+```bash
+chmod +x deploy-docker.sh
+./deploy-docker.sh
+```
+→ http://localhost:8080 でアクセス
+
+### 停止・管理
+```bash
+# 停止
+docker-compose down
+# または
+./stop-docker.sh
+
+# ログ確認
+docker-compose logs -f
+# または
+./logs-docker.sh
+
+# クリーンアップ
+./cleanup-docker.sh
+```
+
 ## 📱 主な機能
 
 ### ✅ 実装済み（フロントエンド）

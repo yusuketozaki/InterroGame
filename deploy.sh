@@ -35,7 +35,7 @@ else
 fi
 
 # フロントエンドのヘルスチェック
-if curl -f http://localhost:80 > /dev/null 2>&1; then
+if curl -f http://localhost:8080 > /dev/null 2>&1; then
     echo "✅ フロントエンドが正常に起動しました"
 else
     echo "❌ フロントエンドの起動に失敗しました"
@@ -44,5 +44,5 @@ else
 fi
 
 echo "🎉 デプロイメント完了！"
-echo "📍 アクセス先: http://localhost"
+echo "📍 アクセス先: http://localhost:8080"
 echo "📊 ログ確認: docker-compose logs -f"
