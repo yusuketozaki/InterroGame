@@ -12,13 +12,13 @@ RUN apt-get update && apt-get install -y \
 # Ollamaをインストール
 RUN curl -fsSL https://ollama.ai/install.sh | sh
 
-# Pythonの依存関係をコピーしてインストール
-COPY backend/pyproject.toml backend/uv.lock ./
-
 # uvをインストール
 RUN pip install uv
 
-# 依存関係をインストール
+# Pythonの依存関係をコピーしてインストール
+COPY backend/pyproject.toml backend/uv.lock ./
+
+# 依存関係をインストール（仮想環境を作成）
 RUN uv sync --frozen
 
 # アプリケーションコードをコピー
