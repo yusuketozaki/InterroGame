@@ -54,34 +54,23 @@ VS Codeのタスク機能を使用：
 
 ## 🐳 Docker デプロイメント
 
-### Docker Compose使用（推奨）
+### 標準デプロイ
 ```bash
 chmod +x deploy.sh
 ./deploy.sh
 ```
 → http://localhost:8080 でアクセス
 
-### Docker Compose非対応環境
-```bash
-chmod +x deploy-docker.sh
-./deploy-docker.sh
-```
-→ http://localhost:8080 でアクセス
-
 ### 停止・管理
 ```bash
 # 停止
-docker-compose down
-# または
-./stop-docker.sh
+./stop.sh
 
 # ログ確認
-docker-compose logs -f
-# または
-./logs-docker.sh
+./logs.sh
 
 # クリーンアップ
-./cleanup-docker.sh
+./cleanup.sh
 ```
 
 ## 📱 主な機能

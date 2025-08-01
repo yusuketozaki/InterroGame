@@ -7,7 +7,7 @@
 
 ### リモートサーバー側
 - Ubuntu 20.04 LTS以上
-- Docker & Docker Compose
+- Docker CE
 - NVIDIA GPU + NVIDIA Docker Runtime（推奨）
 - 最低8GB RAM、20GB以上の空きディスク容量
 - SSH接続が可能
@@ -30,10 +30,6 @@ curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 sudo usermod -aG docker $USER
 
-# Docker Composeのインストール
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-
 # NVIDIA Container Toolkit（GPU使用の場合）
 distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
 curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | sudo apt-key add -
@@ -48,7 +44,6 @@ sudo systemctl restart docker
 exit
 # 再接続後、Dockerが使えることを確認
 docker --version
-docker-compose --version
 ```
 
 ### 2. プロジェクトのデプロイ
@@ -84,14 +79,14 @@ chmod +x deploy.sh
 #### 2.4 デプロイ状況の確認
 ```bash
 # コンテナの状況確認
-docker-compose ps
+docker ps
 
 # ログの確認
-docker-compose logs -f
+./logs.sh
 
-# 特定のサービスのログ確認
-docker-compose logs -f backend
-docker-compose logs -f frontend
+# 特定のコンテナのログ確認
+docker logs -f interrogame-backend
+docker logs -f interrogame-frontend
 ```
 
 ### 3. ローカルからのアクセス設定
@@ -101,10 +96,10 @@ docker-compose logs -f frontend
 **方法1: コマンドラインでの接続**
 ```bash
 # ローカルPCで実行
-ssh -L 8080:localhost:80 -L 8001:localhost:8000 user@remote-server-ip
+ssh -L 8080:localhost:8080 -L 8001:localhost:8000 user@remote-server-ip
 
 # 説明:
-# -L 8080:localhost:80  : リモートの80番ポート（フロントエンド）をローカルの8080番にフォワード
+# -L 8080:localhost:8080 : リモートの8080番ポート（フロントエンド）をローカルの8080番にフォワード
 # -L 8001:localhost:8000 : リモートの8000番ポート（バックエンド）をローカルの8001番にフォワード
 ```
 
@@ -118,7 +113,7 @@ nano ~/.ssh/config
 Host interrogame
     HostName remote-server-ip
     User your-username
-    LocalForward 8080 localhost:80
+    LocalForward 8080 localhost:8080
     LocalForward 8001 localhost:8000
 ```
 
@@ -136,23 +131,21 @@ SSH接続を維持したまま、ローカルPCのブラウザで以下にアク
 #### 4.1 ログの確認
 ```bash
 # リアルタイムログ
-docker-compose logs -f
+./logs.sh
 
-# 過去のログ
-docker-compose logs --tail=100
-
-# 特定サービスのログ
-docker-compose logs -f backend
+# 特定コンテナのログ
+docker logs -f interrogame-backend
+docker logs -f interrogame-frontend
 ```
 
 #### 4.2 コンテナの再起動
 ```bash
-# 全サービス再起動
-docker-compose restart
+# 全コンテナ再起動
+docker restart interrogame-backend interrogame-frontend
 
-# 特定サービスの再起動
-docker-compose restart backend
-docker-compose restart frontend
+# 特定コンテナの再起動
+docker restart interrogame-backend
+docker restart interrogame-frontend
 ```
 
 #### 4.3 アップデート
@@ -167,10 +160,10 @@ git pull origin main
 #### 4.4 完全停止
 ```bash
 # コンテナ停止・削除
-docker-compose down
+./stop.sh
 
-# ボリュームも含めて削除（データが消えるので注意）
-docker-compose down -v
+# データも含めて完全削除（注意）
+./cleanup.sh
 ```
 
 ## 🔧 トラブルシューティング
@@ -199,7 +192,7 @@ docker system prune -a
 #### 3. ポートが使用中
 ```bash
 # ポート使用状況確認
-sudo netstat -tulpn | grep :80
+sudo netstat -tulpn | grep :8080
 sudo netstat -tulpn | grep :8000
 
 # プロセス終了
@@ -209,17 +202,17 @@ sudo kill -9 PID
 #### 4. Ollamaモデルのダウンロードが失敗
 ```bash
 # 手動でモデルをダウンロード
-docker-compose exec backend ollama pull qwen2.5:7b
+docker exec interrogame-backend ollama pull qwen3:8b
 
 # 利用可能なモデル確認
-docker-compose exec backend ollama list
+docker exec interrogame-backend ollama list
 ```
 
 #### 5. フロントエンドがバックエンドに接続できない
 ```bash
 # ネットワーク確認
 docker network ls
-docker network inspect interrogame_interro-network
+docker network inspect interrogame-network
 
 # バックエンドのヘルスチェック
 curl http://localhost:8000/v1/api/health
@@ -239,54 +232,25 @@ curl http://localhost:8000/v1/api/health
 ### バックアップ
 ```bash
 # Ollamaデータのバックアップ
-docker run --rm -v interrogame_ollama_data:/source -v $(pwd):/backup alpine tar czf /backup/ollama-backup.tar.gz -C /source .
+docker run --rm -v interrogame-ollama-data:/source -v $(pwd):/backup alpine tar czf /backup/ollama-backup.tar.gz -C /source .
 
 # 復元
-docker run --rm -v interrogame_ollama_data:/target -v $(pwd):/backup alpine tar xzf /backup/ollama-backup.tar.gz -C /target
+docker run --rm -v interrogame-ollama-data:/target -v $(pwd):/backup alpine tar xzf /backup/ollama-backup.tar.gz -C /target
 ```
 
 ## 🎯 アクセス先まとめ
 
 - **ゲーム**: http://localhost:8080
 - **API確認**: http://localhost:8001/v1/api/health
-- **SSH接続**: `ssh -L 8080:localhost:80 -L 8001:localhost:8000 user@server-ip`
+- **SSH接続**: `ssh -L 8080:localhost:8080 -L 8001:localhost:8000 user@server-ip`
 
 ## 📞 サポート
 
 問題が発生した場合は、以下の情報を含めて報告してください：
 - エラーメッセージ
-- `docker-compose logs` の出力
+- `./logs.sh` の出力
 - システム情報（`uname -a`, `docker --version`）
-sudo ufw allow ssh
-sudo ufw allow from 127.0.0.1 to any port 5173
-sudo ufw allow from 127.0.0.1 to any port 8000
-sudo ufw enable
-```
 
-## サービスの停止・管理
+---
 
-### 停止
-```bash
-# サービスの停止
-docker-compose down
-
-# イメージも削除したい場合
-docker-compose down --rmi all
-
-# ボリュームデータも削除したい場合（注意！）
-docker-compose down -v
-```
-
-### 再起動
-```bash
-# サービスの再起動
-docker-compose restart
-
-# 特定のサービスのみ再起動
-docker-compose restart backend
-docker-compose restart frontend
-```
-
-## まとめ
-
-この設定により、リモートのGPU搭載サーバーでInterroGameを実行し、ローカルPCのブラウザからSSHトンネル経由で安全にアクセスできます。何か問題が発生した場合は、ログを確認し、上記のトラブルシューティング手順に従ってください。
+⚡ このガイドにより、リモートのGPU搭載サーバーでInterroGameを実行し、ローカルPCのブラウザからSSHトンネル経由で安全にアクセスできます。

@@ -1,48 +1,104 @@
 #!/bin/bash
 
-# InterroGame デプロイメントスクリプト
+# InterroGame スタンドアロンDocker デプロイメントスクリプト
+# Docker Composeを使わずに個別のdockerコマンドでデプロイ
+
 set -e
 
-echo "🚀 InterroGame デプロイメント開始..."
+echo "🚀 InterroGame Docker デプロイメント開始..."
+
+# 設定
+NETWORK_NAME="interrogame-network"
+BACKEND_CONTAINER="interrogame-backend"
+FRONTEND_CONTAINER="interrogame-frontend"
+VOLUME_NAME="interrogame-ollama-data"
 
 # 1. 既存のコンテナを停止・削除
 echo "📦 既存のコンテナを停止・削除中..."
-docker-compose down --remove-orphans
+docker stop $BACKEND_CONTAINER $FRONTEND_CONTAINER 2>/dev/null || true
+docker rm $BACKEND_CONTAINER $FRONTEND_CONTAINER 2>/dev/null || true
 
-# 2. 古いイメージを削除（オプション）
-echo "🗑️ 古いイメージを削除中..."
-docker system prune -f
+# 2. ネットワークの作成（存在しない場合）
+echo "🌐 Dockerネットワークを作成中..."
+docker network create $NETWORK_NAME 2>/dev/null || echo "ネットワーク $NETWORK_NAME は既に存在します"
 
-# 3. Dockerイメージをビルド
-echo "🔨 Dockerイメージをビルド中..."
-docker-compose build --no-cache
+# 3. ボリュームの作成（存在しない場合）
+echo "💾 Dockerボリュームを作成中..."
+docker volume create $VOLUME_NAME 2>/dev/null || echo "ボリューム $VOLUME_NAME は既に存在します"
 
-# 4. コンテナを起動
-echo "▶️ コンテナを起動中..."
-docker-compose up -d
+# 4. バックエンドDockerイメージをビルド
+echo "🔨 バックエンドDockerイメージをビルド中..."
+docker build -t interrogame-backend:latest -f Dockerfile.backend .
 
-# 5. ヘルスチェック
+# 5. フロントエンドDockerイメージをビルド
+echo "🔨 フロントエンドDockerイメージをビルド中..."
+docker build -t interrogame-frontend:latest -f Dockerfile.frontend .
+
+# 6. バックエンドコンテナを起動
+echo "▶️ バックエンドコンテナを起動中..."
+docker run -d \
+  --name $BACKEND_CONTAINER \
+  --network $NETWORK_NAME \
+  -p 8000:8000 \
+  -v $VOLUME_NAME:/root/.ollama \
+  -e OLLAMA_HOST=0.0.0.0:11434 \
+  --restart unless-stopped \
+  --gpus all \
+  interrogame-backend:latest
+
+# 7. フロントエンドコンテナを起動
+echo "▶️ フロントエンドコンテナを起動中..."
+docker run -d \
+  --name $FRONTEND_CONTAINER \
+  --network $NETWORK_NAME \
+  -p 8080:80 \
+  --restart unless-stopped \
+  interrogame-frontend:latest
+
+# 8. ヘルスチェック
 echo "🏥 ヘルスチェック中..."
-sleep 30
+echo "Ollamaモデルのダウンロードには時間がかかる場合があります..."
+sleep 45
 
 # バックエンドのヘルスチェック
-if curl -f http://localhost:8000/v1/api/health > /dev/null 2>&1; then
+echo "バックエンドの起動を確認中..."
+for i in {1..15}; do
+  if curl -f http://localhost:8000/v1/api/health > /dev/null 2>&1; then
     echo "✅ バックエンドが正常に起動しました"
-else
+    break
+  else
+    echo "Backend startup waiting... ${i}/15 - Model downloading may be in progress"
+    sleep 20
+  fi
+
+  if [ $i -eq 15 ]; then
     echo "❌ バックエンドの起動に失敗しました"
-    docker-compose logs backend
+    echo "📋 バックエンドログ:"
+    docker logs --tail 50 $BACKEND_CONTAINER
+    echo ""
+    echo "🔍 Ollamaの状況を確認中..."
+    docker exec $BACKEND_CONTAINER ollama list || echo "Ollamaコマンドの実行に失敗"
     exit 1
-fi
+  fi
+done
 
 # フロントエンドのヘルスチェック
+echo "フロントエンドの起動を確認中..."
 if curl -f http://localhost:8080 > /dev/null 2>&1; then
-    echo "✅ フロントエンドが正常に起動しました"
+  echo "✅ フロントエンドが正常に起動しました"
 else
-    echo "❌ フロントエンドの起動に失敗しました"
-    docker-compose logs frontend
-    exit 1
+  echo "❌ フロントエンドの起動に失敗しました"
+  docker logs $FRONTEND_CONTAINER
+  exit 1
 fi
 
 echo "🎉 デプロイメント完了！"
 echo "📍 アクセス先: http://localhost:8080"
-echo "📊 ログ確認: docker-compose logs -f"
+echo "📊 ログ確認:"
+echo "  - バックエンド: docker logs -f $BACKEND_CONTAINER"
+echo "  - フロントエンド: docker logs -f $FRONTEND_CONTAINER"
+echo ""
+echo "🛠️ 管理コマンド:"
+echo "  - 停止: docker stop $BACKEND_CONTAINER $FRONTEND_CONTAINER"
+echo "  - 再起動: docker restart $BACKEND_CONTAINER $FRONTEND_CONTAINER"
+echo "  - 削除: docker rm -f $BACKEND_CONTAINER $FRONTEND_CONTAINER"
