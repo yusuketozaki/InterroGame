@@ -1,4 +1,5 @@
 // API関連の型定義とユーティリティ関数
+import AdminConfigManager from './adminConfig'
 
 export interface ApiMessage {
   role: 'user' | 'assistant' | 'system'
@@ -6,6 +7,7 @@ export interface ApiMessage {
 }
 
 export interface ChatCompletionRequest {
+  model?: string
   system_message: string
   messages: Record<string, ApiMessage>
   stream?: boolean
@@ -22,11 +24,19 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 export class ApiClient {
   static async sendChatCompletion(request: ChatCompletionRequest): Promise<string> {
     try {
+      // 管理者設定から現在のモデルを取得
+      const currentModel = AdminConfigManager.getCurrentModel()
+      const finalRequest = {
+        ...request,
+        model: currentModel
+      }
+
       console.log('API送信直前の最終データ:', {
         url: `${API_BASE_URL}/v1/api/chat`,
+        model: currentModel,
         request: {
-          ...request,
-          system_message: request.system_message.substring(0, 300) + '...',
+          ...finalRequest,
+          system_message: finalRequest.system_message.substring(0, 300) + '...',
         }
       })
 
@@ -35,7 +45,7 @@ export class ApiClient {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(request),
+        body: JSON.stringify(finalRequest),
       })
 
       console.log('APIレスポンス受信:', {

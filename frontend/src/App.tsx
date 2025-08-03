@@ -4,6 +4,7 @@ import GamePage from './pages/GamePage'
 import ResultPage from './pages/ResultPage'
 import ProfilePage from './pages/ProfilePage'
 import AdminPage from './pages/AdminPage'
+import AdminSettingsPage from './pages/AdminSettingsPage'
 import SurveyPage from './pages/SurveyPage'
 import './App.css'
 
@@ -17,6 +18,7 @@ function App() {
           <Route path="/result" element={<ResultPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin-settings" element={<AdminSettingsPage />} />
           <Route path="/survey" element={<SurveyPage />} />
         </Routes>
       </div>

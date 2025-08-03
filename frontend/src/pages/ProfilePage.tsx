@@ -378,6 +378,16 @@ const ProfilePage = () => {
             <h2>🔧 管理者機能</h2>
             <div className="admin-actions">
               <div className="admin-section">
+                <h3>⚙️ システム設定</h3>
+                <p>AIモデルと容疑者プロンプトの管理</p>
+                <div className="button-group">
+                  <Link to="/admin-settings" className="admin-button">
+                    🤖 管理者設定を開く
+                  </Link>
+                </div>
+              </div>
+
+              <div className="admin-section">
                 <h3>📊 データエクスポート</h3>
                 <p>デモ展示のレポート作成用</p>
                 <div className="button-group">

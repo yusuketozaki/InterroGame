@@ -1,4 +1,5 @@
 // 設定ファイル読み込み用のユーティリティ
+import AdminConfigManager from './adminConfig'
 
 export interface Suspect {
   id: number
@@ -85,6 +86,13 @@ class ConfigLoader {
   private static settingsCache: GameSettings | null = null
 
   static async loadSuspects(): Promise<Suspect[]> {
+    // 管理者設定のカスタム容疑者を優先的に使用
+    const customSuspects = AdminConfigManager.getCustomSuspects()
+    if (customSuspects && customSuspects.length > 0) {
+      this.suspectsCache = customSuspects
+      return customSuspects
+    }
+
     if (this.suspectsCache) {
       return this.suspectsCache
     }
@@ -153,7 +161,7 @@ class ConfigLoader {
       const randomIndex = Math.floor(Math.random() * scenarios.length)
       scenario = scenarios[randomIndex]
     }
-    
+
     if (!scenario) {
       throw new Error('No scenarios available')
     }
@@ -170,11 +178,16 @@ class ConfigLoader {
     return isGuilty ? suspect.systemPrompts.guilty : suspect.systemPrompts.innocent
   }
 
-  // キャッシュをクリアする（テスト用）
+  // キャッシュをクリアする（管理者設定変更時に使用）
   static clearCache(): void {
     this.suspectsCache = null
     this.scenariosCache = null
     this.settingsCache = null
+  }
+
+  // 現在使用中のモデルを取得
+  static getCurrentModel(): string {
+    return AdminConfigManager.getCurrentModel()
   }
 }
 

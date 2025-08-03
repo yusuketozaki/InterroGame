@@ -21,6 +21,7 @@ class Message(BaseModel):
 
 
 class ChatCompletionForm(BaseModel):
+    model: str = "qwen3:8b"  # デフォルトモデル
     system_message: str
     messages: dict[str, Message]
     stream: bool = False
@@ -28,21 +29,39 @@ class ChatCompletionForm(BaseModel):
 
 
 def generate_response(form_data: ChatCompletionForm):
-    model = "qwen3:8b"
+    # フロントエンドから送信されたモデルを使用、フォールバックとしてデフォルトを使用
+    model = form_data.model or "qwen3:8b"
     system_message = form_data.system_message
+
+    print(f"Using model: {model}")  # デバッグ用ログ
 
     messages = [{"role": "system", "content": system_message}]
 
     for message in form_data.messages.values():
         messages.append({"role": message.role, "content": message.content})
 
-    response: ChatResponse = chat(
-        model=model,
-        messages=messages,
-        stream=form_data.stream,
-        think=form_data.think,
-    )
-    return response.message.content
+    try:
+        response: ChatResponse = chat(
+            model=model,
+            messages=messages,
+            stream=form_data.stream,
+            think=form_data.think,
+        )
+        return response.message.content
+    except Exception as e:
+        print(f"Error with model {model}: {e}")
+        # フォールバックとしてデフォルトモデルを試す
+        if model != "qwen3:8b":
+            print("Falling back to default model: qwen3:8b")
+            response: ChatResponse = chat(
+                model="qwen3:8b",
+                messages=messages,
+                stream=form_data.stream,
+                think=form_data.think,
+            )
+            return response.message.content
+        else:
+            raise e
 
 
 @app.get("/v1/api/health")
