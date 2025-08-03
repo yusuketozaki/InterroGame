@@ -4128,10 +4128,70 @@ a:focus {
 }
 
 /* Model Selection Styles */
-.model-selection p {
+.model-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 1rem;
+}
+
+.model-header p {
+  margin: 0;
   font-size: 1.1rem;
   color: #555;
+}
+
+.add-model-button {
+  background: #17a2b8;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.3s ease;
+}
+
+.add-model-button:hover {
+  background: #138496;
+}
+
+.custom-model-input {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.model-name-input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.model-name-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.confirm-add-button {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.confirm-add-button:hover {
+  background: #218838;
 }
 
 .model-grid {
@@ -4165,6 +4225,11 @@ a:focus {
   background: #f8f9fa;
 }
 
+.model-info {
+  flex: 1;
+  position: relative;
+}
+
 .model-info h3 {
   margin-bottom: 0.5rem;
   color: #2c3e50;
@@ -4173,6 +4238,28 @@ a:focus {
 .model-info p {
   color: #666;
   margin-bottom: 0;
+}
+
+.remove-model-button {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease;
+}
+
+.remove-model-button:hover {
+  background: #c82333;
 }
 
 .unavailable {

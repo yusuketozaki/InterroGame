@@ -11,6 +11,8 @@ const AdminSettingsPage = () => {
   const [showImportExport, setShowImportExport] = useState(false)
   const [importText, setImportText] = useState('')
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
+  const [customModelName, setCustomModelName] = useState('')
+  const [showCustomModelInput, setShowCustomModelInput] = useState(false)
 
   useEffect(() => {
     loadSettings()
@@ -19,7 +21,7 @@ const AdminSettingsPage = () => {
   const loadSettings = async () => {
     try {
       setCurrentModel(AdminConfigManager.getCurrentModel())
-      setAvailableModels(AdminConfigManager.getAvailableModels())
+      setAvailableModels(AdminConfigManager.getAllModels()) // 変更: すべてのモデル（カスタム含む）を取得
 
       // 現在の容疑者設定を読み込み
       const loadedSuspects = await ConfigLoader.loadSuspects()
@@ -104,6 +106,37 @@ const AdminSettingsPage = () => {
     }
   }
 
+  const handleAddCustomModel = () => {
+    if (!customModelName.trim()) {
+      showMessage('モデル名を入力してください', 'error')
+      return
+    }
+
+    if (AdminConfigManager.addCustomModel(customModelName.trim())) {
+      setCustomModelName('')
+      setShowCustomModelInput(false)
+      loadSettings() // モデルリストを更新
+      showMessage(`カスタムモデル「${customModelName}」を追加しました`, 'success')
+    } else {
+      showMessage('カスタムモデルの追加に失敗しました', 'error')
+    }
+  }
+
+  const handleRemoveCustomModel = (modelName: string) => {
+    if (confirm(`カスタムモデル「${modelName}」を削除しますか？`)) {
+      if (AdminConfigManager.removeCustomModel(modelName)) {
+        // 削除したモデルが現在選択中の場合、デフォルトに戻す
+        if (currentModel === modelName) {
+          handleModelChange('qwen3:8b')
+        }
+        loadSettings() // モデルリストを更新
+        showMessage(`カスタムモデル「${modelName}」を削除しました`, 'success')
+      } else {
+        showMessage('カスタムモデルの削除に失敗しました', 'error')
+      }
+    }
+  }
+
   return (
     <div className="admin-settings-page">
       <div className="container">
@@ -122,7 +155,35 @@ const AdminSettingsPage = () => {
         <section className="settings-section">
           <h2>🤖 AIモデル設定</h2>
           <div className="model-selection">
-            <p>現在のモデル: <strong>{currentModel}</strong></p>
+            <div className="model-header">
+              <p>現在のモデル: <strong>{currentModel}</strong></p>
+              <button
+                onClick={() => setShowCustomModelInput(!showCustomModelInput)}
+                className="add-model-button"
+              >
+                {showCustomModelInput ? 'キャンセル' : '+ カスタムモデル追加'}
+              </button>
+            </div>
+
+            {showCustomModelInput && (
+              <div className="custom-model-input">
+                <input
+                  type="text"
+                  value={customModelName}
+                  onChange={(e) => setCustomModelName(e.target.value)}
+                  placeholder="モデル名を入力 (例: llama3.1:8b, gemma2:9b)"
+                  className="model-name-input"
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddCustomModel()}
+                />
+                <button
+                  onClick={handleAddCustomModel}
+                  className="confirm-add-button"
+                >
+                  追加
+                </button>
+              </div>
+            )}
+
             <div className="model-grid">
               {availableModels.map(model => (
                 <div
@@ -133,6 +194,15 @@ const AdminSettingsPage = () => {
                     <h3>{model.name}</h3>
                     <p>{model.description}</p>
                     {!model.available && <span className="unavailable">利用不可</span>}
+                    {model.description === 'カスタムモデル' && (
+                      <button
+                        onClick={() => handleRemoveCustomModel(model.id)}
+                        className="remove-model-button"
+                        title="削除"
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
                   {model.available && (
                     <button

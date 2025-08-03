@@ -4,6 +4,7 @@ import type { Suspect } from './configLoader'
 export interface AdminConfig {
   model: string
   suspects: Suspect[]
+  customModels: string[]  // カスタムモデルリスト
   lastUpdated: string
 }
 
@@ -92,11 +93,57 @@ class AdminConfigManager {
       config = {
         model: this.DEFAULT_MODEL,
         suspects: [],
+        customModels: [],
         lastUpdated: new Date().toISOString()
       }
     }
     config.model = modelId
     return this.saveConfig(config)
+  }
+
+  // カスタムモデルを追加
+  static addCustomModel(modelName: string): boolean {
+    if (!modelName.trim()) return false
+
+    let config = this.getConfig()
+    if (!config) {
+      config = {
+        model: this.DEFAULT_MODEL,
+        suspects: [],
+        customModels: [],
+        lastUpdated: new Date().toISOString()
+      }
+    }
+
+    // 重複チェック
+    if (!config.customModels.includes(modelName)) {
+      config.customModels.push(modelName)
+      return this.saveConfig(config)
+    }
+    return true // 既に存在する場合も成功とする
+  }
+
+  // カスタムモデルを削除
+  static removeCustomModel(modelName: string): boolean {
+    const config = this.getConfig()
+    if (!config) return false
+
+    config.customModels = config.customModels.filter(m => m !== modelName)
+    return this.saveConfig(config)
+  }
+
+  // すべてのモデル（デフォルト + カスタム）を取得
+  static getAllModels(): ModelOption[] {
+    const defaultModels = this.getAvailableModels()
+    const config = this.getConfig()
+    const customModels: ModelOption[] = (config?.customModels || []).map(modelName => ({
+      id: modelName,
+      name: modelName,
+      description: 'カスタムモデル',
+      available: true
+    }))
+
+    return [...defaultModels, ...customModels]
   }
 
   // カスタム容疑者設定を取得
@@ -112,6 +159,7 @@ class AdminConfigManager {
       config = {
         model: this.DEFAULT_MODEL,
         suspects: [],
+        customModels: [],
         lastUpdated: new Date().toISOString()
       }
     }
@@ -147,6 +195,12 @@ class AdminConfigManager {
       if (!config.model || !Array.isArray(config.suspects)) {
         throw new Error('Invalid configuration format')
       }
+
+      // customModelsが存在しない古い設定の場合は空配列で初期化
+      if (!config.customModels) {
+        config.customModels = []
+      }
+
       return this.saveConfig(config)
     } catch (error) {
       console.error('Failed to import config:', error)
